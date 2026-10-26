@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NetShield Command | Tactical Network & Identity Coordination</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- Authentication Modal / Security Gateway -->
+<div id="authModal" class="auth-overlay active">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-brand-mark">⬡</div>
+      <h2>NetShield Security Gateway</h2>
+      <p>Tactical Network-Centric Command & Verification Portal</p>
+    </div>
+
+    <!-- Auth Tabs -->
+    <div class="auth-tabs">
+      <button type="button" class="auth-tab active" id="tabSignIn">Sign In</button>
+      <button type="button" class="auth-tab" id="tabRegister">Register New Operator</button>
+    </div>
+
+    <!-- Sign In Form -->
+    <form id="loginForm" class="auth-form active">
+      <label>
+        Operator Username
+        <input type="text" id="loginUsername" required autocomplete="username" placeholder="e.g. commander, alpha_lead">
+      </label>
+      <label>
+        Security Passcode
+        <input type="password" id="loginPassword" required autocomplete="current-password" placeholder="••••••••">
+      </label>
+      <div id="loginFeedback" class="feedback"></div>
+      <button type="submit" class="btn btn-primary btn-block">🔐 Authenticate & Enter Command</button>
+    </form>
+
+    <!-- Registration Form -->
+    <form id="registerForm" class="auth-form">
+      <div class="form-row">
+        <label>
+          Username
+          <input type="text" id="regUsername" required placeholder="lowercase_id (min 3 chars)">
+        </label>
+        <label>
+          Password
+          <input type="password" id="regPassword" required placeholder="min 6 characters">
+        </label>
+      </div>
+      <div class="form-row">
+        <label>
+          Full Operator Name
+          <input type="text" id="regFullName" required placeholder="e.g. Maj. Nathan Drake">
+        </label>
+        <label>
+          Tactical Callsign
+          <input type="text" id="regCallsign" required placeholder="e.g. EAGLE-EYE">
+        </label>
+      </div>
+      <div class="form-row">
+        <label>
+          Assigned Unit
+          <select id="regUnitId">
+            <option value="CC">Command Center (CC)</option>
+            <option value="A" selected>Alpha Unit (A)</option>
+            <option value="B">Bravo Unit (B)</option>
+            <option value="C">Charlie Unit (C)</option>
+            <option value="D">Delta Unit (D)</option>
+            <option value="E">Echo Unit (E)</option>
+          </select>
+        </label>
+        <label>
+          Operational Role
+          <select id="regRole">
+            <option value="Command Officer">Command Officer (Level 3 - Top Secret)</option>
+            <option value="Communications Officer">Communications Officer (Level 2 - Secret)</option>
+            <option value="Field Specialist" selected>Field Specialist (Level 1 - Confidential)</option>
+          </select>
+        </label>
+      </div>
+      <div id="regFeedback" class="feedback"></div>
+      <button type="submit" class="btn btn-primary btn-block">✦ Register Credentials & Connect</button>
+    </form>
+
+    <div class="auth-footer">
+      <span>● Encrypted Simulation Session</span>
+      <span>Identity Authenticated via SHA-256 Signatures</span>
+    </div>
+  </div>
+</div>
+
+<!-- Incoming Message Alert Pop-Up Modal -->
+<div id="incomingAlertModal" class="alert-overlay">
+  <div class="alert-card">
+    <div class="alert-card-header">
+      <div class="alert-header-main">
+        <div class="alert-pulse-icon">🚨</div>
+        <div>
+          <h3>INCOMING TRANSMISSION ALERT</h3>
+          <p>Station <span id="alertTargetUnit" class="highlight-unit">Alpha Unit (A)</span> received a transmission</p>
+        </div>
+      </div>
+      <button type="button" class="btn-close-modal" id="alertCloseBtn" title="Dismiss Alert">✕</button>
+    </div>
+
+    <div class="alert-card-body">
+      <div class="alert-sender-row">
+        <div>
+          <span class="alert-field-label">ORIGINATING UNIT & OPERATOR</span>
+          <div class="alert-sender-info">
+            <b id="alertSourceUnit">Command Center (CC)</b>
+            <span id="alertSenderDetails">Capt. Sarah Vance [VANGUARD-1]</span>
+          </div>
+        </div>
+        <div class="alert-badge-group">
+          <span class="pill" id="alertPriorityPill">High</span>
+          <span class="sig-token" id="alertSigToken">SIG-XXXXXXXX</span>
+        </div>
+      </div>
+
+      <div class="alert-message-box">
+        <span class="alert-field-label">TRANSMISSION CONTENT</span>
+        <p id="alertMessageText">Waiting for transmission payload...</p>
+      </div>
+
+      <div class="alert-route-row">
+        <span class="alert-field-label">DIJKSTRA NETWORK ROUTE</span>
+        <div class="route-chips" id="alertRouteChips"></div>
+      </div>
+    </div>
+
+    <div class="alert-card-footer">
+      <button type="button" class="btn btn-quiet" id="alertViewLogBtn">⇄ View in Message Log</button>
+      <button type="button" class="btn btn-primary" id="alertAckBtn">✓ Acknowledge & Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<!-- Main App Shell -->
+<div class="app-shell" id="appShell">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">⬡</span>
+      <div>
+        <b>NetShield</b>
+        <small>COMMAND SIMULATOR</small>
+      </div>
+    </div>
+    <div class="side-label">WORKSPACE</div>
+    <button class="nav active" data-page="dashboard">▦ <span>Dashboard</span></button>
+    <button class="nav" data-page="communication">⇄ <span>Communication</span></button>
+    <button class="nav" data-page="network">◎ <span>Network links</span></button>
+    <button class="nav" data-page="reports">▤ <span>AI-style reports</span></button>
+    
+    <div class="side-bottom">
+      <span class="status-dot"></span>
+      <div>
+        <b>Simulation online</b>
+        <small id="authStatusText">Authenticated & Ready</small>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">NETWORK-CENTRIC COORDINATION & IDENTITY SYSTEM</div>
+        <h1 id="pageTitle">Operations dashboard</h1>
+      </div>
+
+      <div class="top-actions">
+        <!-- Logged-in Operator Profile Badge -->
+        <div class="operator-badge" id="operatorBadge">
+          <div class="operator-avatar" id="profileAvatar">🎖️</div>
+          <div class="operator-info">
+            <div class="op-callsign">
+              <span id="profileCallsign">VANGUARD-1</span> 
+              <span class="op-unit-tag" id="profileUnitTag">CC</span>
+              <span class="op-power-pill" id="opPowerPill">LEVEL 3: FULL COMMAND</span>
+            </div>
+            <div class="op-name" id="profileName">Capt. Sarah Vance</div>
+            <div class="op-role" id="profileRole">Command Officer • Level 3</div>
+          </div>
+        </div>
+
+        <button class="btn btn-quiet btn-icon" id="toggleAudio" title="Toggle Tactical Audio Feedback">🔊</button>
+        <button class="btn btn-danger" id="failRandom">⚡ Simulate failure</button>
+        <button class="btn btn-quiet" id="logoutBtn" title="Sign out of current operator session">⏻ Sign Out</button>
+      </div>
+    </header>
+
+    <!-- DASHBOARD PAGE -->
+    <section class="page active" id="dashboard">
+      <div class="stats-grid">
+        <article class="stat-card">
+          <div class="stat-label">SIMULATED UNITS</div>
+          <div class="stat-value" id="unitCount">6</div>
+          <div class="stat-foot">Registered nodes</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">ACTIVE LINKS</div>
+          <div class="stat-value green" id="activeCount">10</div>
+          <div class="stat-foot">Available connections</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">FAILED LINKS</div>
+          <div class="stat-value red" id="failedCount">0</div>
+          <div class="stat-foot">Simulated outages</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">NETWORK HEALTH</div>
+          <div class="stat-value" id="uptime">100%</div>
+          <div class="stat-foot">Active links / total links</div>
+        </article>
+      </div>
+
+      <div class="content-grid">
+        <article class="panel map-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Network topology & Dijkstra routing</h2>
+              <p>Click any link to toggle outage. Active routes animate dynamically across hops.</p>
+            </div>
+            <div class="legend">
+              <span><i class="line green-line"></i>Active</span>
+              <span><i class="line red-line"></i>Failed</span>
+              <span><i class="line blue-line"></i>Shortest Route</span>
+              <span><i class="dot-indicator"></i>Packet Pulse</span>
+            </div>
+          </div>
+
+          <div class="network-map" id="networkMap">
+            <svg id="linkSvg" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <!-- Animated packet elements rendered dynamically -->
+            </svg>
+            <div id="nodeLayer"></div>
+          </div>
+
+          <div class="map-footer">
+            <span>● Synthetic Mesh Topology (Dijkstra Shortest Path Engine)</span>
+            <button class="btn btn-quiet" id="restoreAll">Restore all links</button>
+          </div>
+        </article>
+
+        <article class="panel events-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Security & Operational Audit Log</h2>
+              <p>Chronological system activity and identity attribution</p>
+            </div>
+          </div>
+          <div id="eventList" class="event-list"></div>
+          <div class="notice">Identity-verified simulation. All actions are logged to persistent tactical storage.</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- COMMUNICATION PAGE -->
+    <section class="page" id="communication">
+      <!-- Operator Identity Banner -->
+      <div class="identity-banner" id="commIdentityBanner">
+        <div class="id-seal">✓ IDENTITY VERIFIED</div>
+        <div class="id-details">
+          <b>Active Dispatcher: <span id="bannerOpName">Capt. Sarah Vance</span> [<span id="bannerOpCallsign">VANGUARD-1</span>]</b>
+          <span>Role: <span id="bannerOpRole">Command Officer</span> &nbsp;•&nbsp; Assigned Unit: <span id="bannerOpUnit">Command Center (CC)</span> &nbsp;•&nbsp; Digital Signing: SHA-256 Enabled</span>
+        </div>
+      </div>
+
+      <!-- Role Permissions & Communication Powers Matrix -->
+      <div class="role-powers-bar" id="rolePowersBar">
+        <div class="rpb-item"><span class="rpb-label">ROLE CLEARANCE</span><b id="rpbClearance">Level 3 (Command Officer)</b></div>
+        <div class="rpb-item"><span class="rpb-label">TRANSMISSION ORIGIN</span><b id="rpbOrigins">Any Operational Unit</b></div>
+        <div class="rpb-item"><span class="rpb-label">PERMITTED DESTINATIONS</span><b id="rpbDestinations">All Network Stations</b></div>
+        <div class="rpb-item"><span class="rpb-label">PRIORITY LEVELS</span><b id="rpbPriorities">Urgent, High, Normal, Low</b></div>
+        <div class="rpb-item"><span class="rpb-label">FLEET BROADCAST</span><b id="rpbBroadcast">Authorized (Flash Override)</b></div>
+      </div>
+
+      <div class="content-grid comm-grid">
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Dispatch Transmission</h2>
+              <p>Send an identity-signed packet through the simulated network</p>
+            </div>
+            <div class="comm-actions">
+              <button type="button" class="btn btn-quiet" id="simulateIncomingBtn" title="Simulates another station sending an inbound message to your unit">📥 Test Inbound Alert</button>
+              <button type="button" class="btn btn-quiet" id="broadcastBtn" title="Dispatches an urgent priority broadcast to all units">⚡ Broadcast to All</button>
+            </div>
+          </div>
+
+          <form id="messageForm" class="form-stack">
+            <div class="form-row">
+              <label>
+                From Unit (Source)
+                <select id="source"></select>
+                <small class="input-hint" id="sourceHint">Available origins governed by role clearance.</small>
+              </label>
+              <label>
+                To Unit (Destination)
+                <select id="target"></select>
+                <small class="input-hint" id="targetHint">Destination range governed by role clearance.</small>
+              </label>
+            </div>
+            <label>
+              Priority Level
+              <select id="priority">
+                <option value="Normal">Normal</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent (Tactical Alert)</option>
+                <option value="Low">Low</option>
+              </select>
+              <small class="input-hint" id="priorityHint">Allowed priority tiers governed by role clearance.</small>
+            </label>
+            <label>
+              Operational Transmission Content
+              <textarea id="messageText" maxlength="500" placeholder="Example: Recon complete. Perimeter secure at grid sector 4. Link stable." required></textarea>
+            </label>
+            <button class="btn btn-primary" type="submit">↗ Send Identity-Signed Message</button>
+            <div id="formFeedback" class="feedback"></div>
+          </form>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Transmission Analysis</h2>
+              <p>Cryptographic signature verification & Dijkstra route calculation</p>
+            </div>
+          </div>
+          <div id="transmissionEmpty" class="empty-state">
+            <div class="empty-icon">⇄</div>
+            <b>Waiting for transmission</b>
+            <span>Transmit an authenticated message to view cryptographic verification, path hops, and delay.</span>
+          </div>
+          <div id="transmissionResult" hidden></div>
+        </article>
+      </div>
+
+      <!-- Transmission History Log with Filters & Export -->
+      <article class="panel table-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Verified Message Log</h2>
+            <p>Chronological transmissions with verified operator identity and station direction</p>
+          </div>
+          <div class="table-actions">
+            <input type="text" id="logSearch" placeholder="🔍 Search message, unit, or callsign..." class="input-search">
+            <select id="filterPriority" class="select-filter">
+              <option value="">All Priorities</option>
+              <option value="Urgent">Urgent</option>
+              <option value="High">High</option>
+              <option value="Normal">Normal</option>
+              <option value="Low">Low</option>
+            </select>
+            <select id="filterStatus" class="select-filter">
+              <option value="">All Statuses</option>
+              <option value="Delivered">Delivered</option>
+              <option value="No route">No Route</option>
+            </select>
+            <button class="btn btn-quiet" id="exportCsvBtn" title="Export message log as CSV">📥 Export CSV</button>
+            <button class="btn btn-quiet" id="exportJsonBtn" title="Export message log as JSON">📥 Export JSON</button>
+          </div>
+        </div>
+
+        <!-- Mailbox Station Filter Tabs -->
+        <div class="log-mailbox-bar">
+          <div class="mailbox-tabs">
+            <button type="button" class="mailbox-tab active" data-box="all" id="boxAll">All Transmissions</button>
+            <button type="button" class="mailbox-tab" data-box="sent" id="boxSent">↗ Sent from My Station (<span id="boxSentUnit">B</span>)</button>
+            <button type="button" class="mailbox-tab" data-box="received" id="boxReceived">↙ Inbound to My Station (<span id="boxReceivedUnit">B</span>)</button>
+          </div>
+          <div class="mailbox-stats-pill" id="mailboxStatsPill">Showing all fleet transmissions</div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Direction</th>
+                <th>Operator (Callsign)</th>
+                <th>From (Origin) → To (Recipient)</th>
+                <th>Transmission Message / Category</th>
+                <th>Priority</th>
+                <th>Dijkstra Route</th>
+                <th>Digital Signature</th>
+                <th>Delivery Status</th>
+              </tr>
+            </thead>
+            <tbody id="messageRows"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <!-- NETWORK LINKS PAGE -->
+    <section class="page" id="network">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Tactical Connection Matrix</h2>
+            <p>Toggle individual links to simulate outages and observe automated dynamic Dijkstra rerouting</p>
+          </div>
+          <button class="btn btn-quiet" id="restoreAll2">Restore all links</button>
+        </div>
+        <div id="linkCards" class="link-grid"></div>
+      </article>
+      <article class="panel info-panel">
+        <b>Dijkstra Graph Routing & Identity Non-Repudiation</b>
+        <p>In this tactical simulation, each connection edge possesses a weighted cost. When link failures are introduced, the pathfinding engine computes alternative shortest paths. Furthermore, every packet is bound to the sending operator's credentials, creating an auditable, non-repudiable operational log.</p>
+      </article>
+    </section>
+
+    <!-- REPORTS & AI-STYLE SUMMARY PAGE -->
+    <section class="page" id="reports">
+      <article class="panel report-panel">
+        <div class="panel-head">
+          <div>
+            <h2>AI-Style Tactical Situation Summary</h2>
+            <p>Automated situational assessment generated from current topology, outages, and transmission metrics</p>
+          </div>
+          <button class="btn btn-primary" id="generateSummary">✦ Generate situation summary</button>
+        </div>
+        <div id="summaryBox" class="summary-box">
+          <div class="ai-icon">AI</div>
+          <div>
+            <b>Operational Analysis Engine Ready</b>
+            <p>Generate a summary to review network uptime, active link failures, message delivery statistics, and watch officer status.</p>
+          </div>
+        </div>
+      </article>
+
+      <div class="stats-grid report-stats">
+        <article class="stat-card">
+          <div class="stat-label">TOTAL TRANSMISSIONS</div>
+          <div class="stat-value" id="totalMessages">0</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">DELIVERED</div>
+          <div class="stat-value green" id="deliveredMessages">0</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">NO ROUTE (FAILED)</div>
+          <div class="stat-value red" id="failedMessages">0</div>
+        </article>
+        <article class="stat-card">
+          <div class="stat-label">AVERAGE DELAY</div>
+          <div class="stat-value" id="averageDelay">0 s</div>
+        </article>
+      </div>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Incident Classification Taxonomy</h2>
+            <p>Automated categorizations applied based on transmission semantics</p>
+          </div>
+        </div>
+        <div class="category-grid">
+          <div>
+            <span class="category-symbol">⌁</span>
+            <b>Connectivity</b>
+            <p>Links, offline, signal, disconnect, packet</p>
+          </div>
+          <div>
+            <span class="category-symbol">!</span>
+            <b>Urgent assistance</b>
+            <p>Help, urgent, emergency, support, mayday</p>
+          </div>
+          <div>
+            <span class="category-symbol">▣</span>
+            <b>Logistics</b>
+            <p>Supply, vehicle, equipment, water, ammo</p>
+          </div>
+          <div>
+            <span class="category-symbol">✓</span>
+            <b>Status update</b>
+            <p>Secure, ready, arrived, complete, confirmed</p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <footer>
+      NetShield Command <span>•</span> Tactical Network Coordination Prototype <span>•</span> Authenticated & Identity-Verified
+    </footer>
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
